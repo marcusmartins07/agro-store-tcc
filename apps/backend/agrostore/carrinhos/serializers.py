@@ -1,0 +1,73 @@
+from rest_framework import serializers
+
+from agrostore.produtos.models import Produto
+from agrostore.produtos.serializers import url_imagem_principal
+from .models import Carrinho, CarrinhoProduto
+
+
+class CarrinhoProdutoSerializer(serializers.ModelSerializer):
+    produto_nome = serializers.StringRelatedField(source='produto', read_only=True)
+    produto_imagem = serializers.SerializerMethodField()
+    loja = serializers.IntegerField(source='carrinho.loja_id', read_only=True)
+    loja_nome = serializers.StringRelatedField(source='carrinho.loja', read_only=True)
+    valor_unitario = serializers.ReadOnlyField()
+    valor_desconto = serializers.ReadOnlyField()
+    subtotal = serializers.ReadOnlyField()
+    estoque = serializers.IntegerField(source='produto.estoque', read_only=True)
+    disponivel = serializers.BooleanField(source='produto.disponivel_para_compra', read_only=True)
+
+    class Meta:
+        model = CarrinhoProduto
+        fields = [
+            'carrinho_produto_id',
+            'carrinho',
+            'produto',
+            'produto_nome',
+            'produto_imagem',
+            'loja',
+            'loja_nome',
+            'valor_unitario',
+            'valor_desconto',
+            'quantidade',
+            'estoque',
+            'disponivel',
+            'subtotal',
+        ]
+        read_only_fields = ['carrinho']
+
+    def get_produto_imagem(self, obj):
+        return url_imagem_principal(obj.produto, self.context.get('request'))
+
+
+class CarrinhoSerializer(serializers.ModelSerializer):
+    loja_nome = serializers.StringRelatedField(source='loja', read_only=True)
+    itens = CarrinhoProdutoSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Carrinho
+        fields = [
+            'carrinho_id',
+            'loja',
+            'loja_nome',
+            'valor_bruto',
+            'valor_desconto',
+            'valor_liquido',
+            'itens',
+        ]
+        read_only_fields = ['loja', 'valor_bruto', 'valor_desconto', 'valor_liquido']
+
+
+class AdicionarCarrinhoProdutoSerializer(serializers.Serializer):
+    produto = serializers.PrimaryKeyRelatedField(queryset=Produto.objects.select_related('loja').all())
+    quantidade = serializers.IntegerField(min_value=1, default=1)
+
+    def validate_produto(self, produto):
+        if not produto.ativo:
+            raise serializers.ValidationError("Produto inativo não pode ser adicionado ao carrinho.")
+        if not produto.loja.ativa:
+            raise serializers.ValidationError("Produto de loja inativa não pode ser adicionado ao carrinho.")
+        return produto
+
+
+class AtualizarCarrinhoProdutoSerializer(serializers.Serializer):
+    quantidade = serializers.IntegerField(min_value=1)

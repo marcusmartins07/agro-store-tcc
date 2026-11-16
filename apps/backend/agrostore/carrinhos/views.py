@@ -1,0 +1,97 @@
+from django.db import transaction
+from django.shortcuts import get_object_or_404
+from rest_framework import mixins, permissions, status, viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
+
+from .models import Carrinho, CarrinhoProduto
+from .serializers import (
+    AdicionarCarrinhoProdutoSerializer,
+    AtualizarCarrinhoProdutoSerializer,
+    CarrinhoProdutoSerializer,
+    CarrinhoSerializer,
+)
+
+
+class CarrinhoViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
+    serializer_class = CarrinhoSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    http_method_names = ['get', 'post', 'patch', 'delete']
+
+    def get_queryset(self):
+        return Carrinho.objects.filter(
+            usuario=self.request.user
+        ).select_related('loja').prefetch_related('itens__produto__loja', 'itens__produto__imagens')
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return AdicionarCarrinhoProdutoSerializer
+        return CarrinhoSerializer
+
+    @transaction.atomic
+    def create(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        produto = serializer.validated_data['produto']
+        quantidade = serializer.validated_data['quantidade']
+        item = CarrinhoProduto.objects.filter(carrinho__usuario=request.user, produto=produto).first()
+        quantidade_final = quantidade
+        if item:
+            quantidade_final = quantidade + item.quantidade
+
+        if quantidade_final > produto.estoque:
+            return Response(
+                {"detail": "Produto sem estoque suficiente para a quantidade solicitada."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if item:
+            carrinho = item.carrinho
+            item.quantidade = quantidade_final
+            item.save(update_fields=['quantidade', 'data_atualizacao'])
+        else:
+            carrinho, _ = Carrinho.objects.get_or_create(usuario=request.user, loja=produto.loja)
+            item = CarrinhoProduto.objects.create(carrinho=carrinho, produto=produto, quantidade=quantidade)
+
+        carrinho.recalcular_totais()
+        return Response(CarrinhoProdutoSerializer(item, context=self.get_serializer_context()).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['patch'], url_path=r'itens/(?P<item_id>[^/.]+)')
+    @transaction.atomic
+    def atualizar_item(self, request, item_id=None):
+        item = self._get_item_do_usuario(request, item_id)
+        serializer = AtualizarCarrinhoProdutoSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        quantidade = serializer.validated_data['quantidade']
+        if quantidade > item.produto.estoque:
+            return Response(
+                {"detail": "Produto sem estoque suficiente para a quantidade solicitada."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        item.quantidade = quantidade
+        item.save(update_fields=['quantidade', 'data_atualizacao'])
+        item.carrinho.recalcular_totais()
+        return Response(CarrinhoProdutoSerializer(item, context=self.get_serializer_context()).data)
+
+    @atualizar_item.mapping.delete
+    @transaction.atomic
+    def remover_item(self, request, item_id=None):
+        item = self._get_item_do_usuario(request, item_id)
+        carrinho = item.carrinho
+        item.delete()
+
+        if carrinho.itens.exists():
+            carrinho.recalcular_totais()
+        else:
+            carrinho.delete()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def _get_item_do_usuario(self, request, item_id):
+        return get_object_or_404(CarrinhoProduto.objects.select_related(
+            'carrinho',
+            'produto',
+        ).prefetch_related('produto__imagens'), carrinho__usuario=request.user, carrinho_produto_id=item_id)

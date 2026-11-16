@@ -1,0 +1,64 @@
+import django.db.models.deletion
+from django.conf import settings
+from django.db import migrations, models
+
+
+class Migration(migrations.Migration):
+
+    initial = True
+
+    dependencies = [
+        ('lojas', '0001_initial'),
+        ('produtos', '0001_initial'),
+        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+    ]
+
+    operations = [
+        migrations.CreateModel(
+            name='Carrinho',
+            fields=[
+                ('data_criacao', models.DateTimeField(auto_now_add=True)),
+                ('data_atualizacao', models.DateTimeField(auto_now=True)),
+                ('carrinho_id', models.BigAutoField(db_column='id_carrinho', primary_key=True, serialize=False)),
+                ('valor_bruto', models.DecimalField(decimal_places=2, default=0, max_digits=10)),
+                ('valor_desconto', models.DecimalField(decimal_places=2, default=0, max_digits=10)),
+                ('valor_liquido', models.DecimalField(decimal_places=2, default=0, max_digits=10)),
+                ('loja', models.ForeignKey(db_column='id_loja', on_delete=django.db.models.deletion.CASCADE, to='lojas.loja')),
+                ('usuario', models.ForeignKey(
+                    db_column='id_usuario',
+                    on_delete=django.db.models.deletion.CASCADE,
+                    related_name='carrinhos',
+                    to=settings.AUTH_USER_MODEL,
+                )),
+            ],
+            options={
+                'db_table': 'carrinho',
+                'unique_together': {('usuario', 'loja')},
+            },
+        ),
+        migrations.CreateModel(
+            name='CarrinhoProduto',
+            fields=[
+                ('data_criacao', models.DateTimeField(auto_now_add=True)),
+                ('data_atualizacao', models.DateTimeField(auto_now=True)),
+                ('carrinho_produto_id', models.BigAutoField(db_column='id_carrinho_produto', primary_key=True, serialize=False)),
+                ('quantidade', models.PositiveIntegerField(default=1)),
+                ('carrinho', models.ForeignKey(
+                    db_column='id_carrinho',
+                    on_delete=django.db.models.deletion.CASCADE,
+                    related_name='itens',
+                    to='carrinhos.carrinho',
+                )),
+                ('produto', models.ForeignKey(
+                    db_column='id_produto',
+                    on_delete=django.db.models.deletion.CASCADE,
+                    related_name='itens_carrinho',
+                    to='produtos.produto',
+                )),
+            ],
+            options={
+                'db_table': 'carrinho_produto',
+                'unique_together': {('carrinho', 'produto')},
+            },
+        ),
+    ]
