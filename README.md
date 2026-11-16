@@ -60,7 +60,7 @@ docker compose version
 1. Baixe o projeto e entre na pasta:
 
 ```bash
-git clone https://github.com/marcusmartins07/agro-store.git
+git clone https://github.com/marcusmartins07/agro-store-tcc.git
 cd agro-store
 ```
 
