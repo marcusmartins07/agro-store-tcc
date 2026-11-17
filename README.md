@@ -1,10 +1,10 @@
 # Agro Store - Guia técnico de execução
 
-Este guia explica, passo a passo, como baixar e executar o Agro Store com o banco de demonstração já carregado. Foi escrito para quem nunca usou Docker. A documentação completa (API, regras de negócio e detalhes) está no [README.md](README.md).
+Este guia explica, passo a passo, como baixar e executar o Agro Store com o banco de demonstração já carregado.
 
 ## 1. Resumo do projeto
 
-O Agro Store é um MVP desenvolvido como Trabalho de Conclusão de Curso: uma plataforma web para compra e venda de produtos rurais, voltada à Feira do Produtor Rural Willi Dummer, em Camaquã/RS. A retirada dos pedidos é presencial na feira; o MVP não tem pagamento online, entrega nem frete.
+O Agro Store é um MVP desenvolvido como Trabalho de Conclusão de Curso: uma plataforma web para compra e venda de produtos rurais, voltada à Feira do Produtor Rural Willi Dummer, em Camaquã/RS. A retirada dos pedidos é presencial na feira.
 
 ### Funcionalidades principais
 
